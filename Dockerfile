@@ -8,8 +8,7 @@ RUN VERSION=$(cat /tmp/VERSION) && \
     chmod a+x /usr/local/bin/* && \
     apk add --no-cache git build-base openssl && \
     apk add --no-cache --repository http://dl-cdn.alpinelinux.org/alpine/v3.11/main leveldb-dev && \
-    apk add --no-cache --repository http://dl-cdn.alpinelinux.org/alpine/edge/testing rocksdb-dev && \
-    pip install aiohttp pylru plyvel websockets python-rocksdb uvloop && \
+    pip install aiohttp pylru plyvel websockets uvloop && \
     git clone -b $VERSION https://github.com/reddcoin-project/electrumx-reddcoin.git && \
     cd electrumx-reddcoin && \
     python setup.py install && \
