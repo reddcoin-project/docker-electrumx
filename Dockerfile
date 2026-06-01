@@ -1,7 +1,7 @@
-ARG VERSION=1.18.0
+ARG VERSION=1.19.1
 
 FROM debian:trixie-slim
-LABEL maintainer="Luke Childs <lukechilds123@gmail.com>"
+LABEL maintainer="John Nash <gnasher@reddcoin.com>"
 
 ARG VERSION
 
@@ -12,7 +12,7 @@ RUN apt-get --yes update
 RUN apt-get --yes install python3-pip build-essential libc6-dev libncurses5-dev libncursesw5-dev libleveldb-dev git
 RUN pip3 install --break-system-packages plyvel uvloop
 
-RUN git clone -b $VERSION https://github.com/spesmilo/electrumx.git
+RUN git clone -b $VERSION https://github.com/reddcoin-project/electrumx.git
 RUN cd electrumx &&  python3 -m pip install --break-system-packages .
 
 VOLUME ["/data"]
