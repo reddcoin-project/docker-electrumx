@@ -6,6 +6,8 @@ on:
       - master
 
 env:
+  APP: electrumx
+  DOCKER_REPOSITORY: reddcoincore
   DOCKER_CLI_EXPERIMENTAL: enabled
 
 jobs:
@@ -13,10 +15,15 @@ jobs:
     name: Build Docker image
     runs-on: ubuntu-24.04
     env:
-      VERSION: 1.18.0
+      VERSION: 1.19.1
     steps:
+      - name: Setup environment
+        run: |
+          echo "SLUG=$DOCKER_REPOSITORY/$APP" >> "$GITHUB_ENV"
+
       - name: Login to Docker Hub
-        run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u lukechilds --password-stdin
+        run: |
+          echo "${{ secrets.DOCKER_TOKEN }}" | docker login -u="${{ secrets.DOCKER_USERNAME }}" --password-stdin
 
       - name: Checkout project
         uses: actions/checkout@v2
@@ -34,6 +41,6 @@ jobs:
           docker buildx build \
           --platform linux/amd64,linux/arm64 \
           --build-arg VERSION=$VERSION \
-          --tag lukechilds/electrumx:v$VERSION \
-          --tag lukechilds/electrumx:latest \
+          --tag $SLUG:v$VERSION \
+          --tag $SLUG:latest \
           --output "type=registry" .
