@@ -1,0 +1,84 @@
+name: Build & release on git tag push
+
+env:
+  APP: electrumx
+  DOCKER_REPOSITORY: reddcoincore
+
+  # Capture groups within $TAG_FMT:
+  #   \1 => TAG       vX.Y.Z[rcN]
+  #   \2 => VERSION   X.Y.Z[rcN]
+  TAG_FMT: '^refs/tags/(v([0-9]+\.[0-9]+\.[0-9]+(rc[0-9]+)?))$'
+
+on:
+  push:
+    tags: [ 'v*' ]
+
+jobs:
+  release:
+    name: Build, push to Docker Hub & create GitHub Release
+    runs-on: ubuntu-24.04
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout project
+        uses: actions/checkout@v7
+
+      - name: Setup environment
+        run: |
+          if ! echo "$GITHUB_REF" | grep -qE "$TAG_FMT"; then
+            echo "ERR: TAG must be in format: vX.Y.Z[rcN]"
+            exit 1
+          fi
+
+          VERSION="$(echo "$GITHUB_REF" | sed -E "s|$TAG_FMT|\2|")"
+
+          if ! grep -q "^ARG VERSION=${VERSION}$" Dockerfile; then
+            echo "ERR: Dockerfile must contain ARG VERSION=$VERSION"
+            exit 1
+          fi
+
+          {
+            echo "SLUG=$DOCKER_REPOSITORY/$APP"
+            echo "TAG=$(echo "$GITHUB_REF" | sed -E "s|$TAG_FMT|\1|")"
+            echo "VERSION=$VERSION"
+          } >> "$GITHUB_ENV"
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_TOKEN }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4
+
+      - name: Setup Docker buildx action
+        uses: docker/setup-buildx-action@v4
+
+      - name: Run Docker buildx
+        run: |
+          docker buildx build \
+          --platform linux/amd64,linux/arm64 \
+          --build-arg VERSION=$VERSION \
+          --label "commit=${{ github.sha }}" \
+          --label "git-tag=$TAG" \
+          --label "repo-url=${{ github.repositoryUrl }}" \
+          --tag $SLUG:$TAG \
+          --output "type=registry" .
+
+      - name: Print image details
+        run: docker buildx imagetools inspect "$SLUG:$TAG"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release create "$TAG" \
+            --verify-tag \
+            --title "$TAG" \
+            --notes "This release packages ElectrumX \`$VERSION\` from https://github.com/reddcoin-project/electrumx/tree/$VERSION
+
+          Docker image: [\`$SLUG:$TAG\`](https://hub.docker.com/r/$SLUG/tags?name=$TAG) (\`linux/amd64\`, \`linux/arm64\`)"

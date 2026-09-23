@@ -14,8 +14,6 @@ jobs:
   build:
     name: Build Docker image
     runs-on: ubuntu-24.04
-    env:
-      VERSION: 1.20.1
     steps:
       - name: Setup environment
         run: |
@@ -42,7 +40,5 @@ jobs:
         run: |
           docker buildx build \
           --platform linux/amd64,linux/arm64 \
-          --build-arg VERSION=$VERSION \
-          --tag $SLUG:v$VERSION \
           --tag $SLUG:latest \
           --output "type=registry" .

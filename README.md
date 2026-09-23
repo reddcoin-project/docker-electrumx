@@ -1,12 +1,15 @@
 reddcoincore/electrumx
 ======================
 
+[![Build Status]][builds]
 [![gh_last_release_svg]][gh_last_release_url]
 [![Docker Image Size]][docker-hub]
 [![Docker Pulls Count]][docker-hub]
 
-[gh_last_release_svg]: https://img.shields.io/github/v/tag/reddcoin-project/docker-electrumx?sort=semver
-[gh_last_release_url]: https://github.com/reddcoin-project/docker-electrumx/tags
+[Build Status]: https://github.com/reddcoin-project/docker-electrumx/actions/workflows/on-tag.yml/badge.svg
+[builds]: https://github.com/reddcoin-project/docker-electrumx/actions/workflows/on-tag.yml
+[gh_last_release_svg]: https://img.shields.io/github/v/release/reddcoin-project/docker-electrumx?sort=semver
+[gh_last_release_url]: https://github.com/reddcoin-project/docker-electrumx/releases/latest
 [Docker Image Size]: https://img.shields.io/docker/image-size/reddcoincore/electrumx
 [Docker Pulls Count]: https://img.shields.io/docker/pulls/reddcoincore/electrumx.svg?style=flat
 [docker-hub]: https://hub.docker.com/r/reddcoincore/electrumx
@@ -28,7 +31,7 @@ This repo packages the [Reddcoin fork of ElectrumX][reddcoin-electrumx] into a D
 > **NOTE:** For an always up-to-date list see: https://hub.docker.com/r/reddcoincore/electrumx/tags
 
 * `latest` — most recent build from `master`
-* `v<version>` (e.g. `v1.20.1`) — built from the matching tag of [reddcoin-project/electrumx][reddcoin-electrumx]
+* `v<version>` (e.g. `v1.20.1`) — built from the matching tag of [reddcoin-project/electrumx][reddcoin-electrumx], with a matching [GitHub Release](https://github.com/reddcoin-project/docker-electrumx/releases)
 
 
 ## Usage
@@ -159,7 +162,19 @@ docker run \
 docker build --build-arg VERSION=1.20.1 -t reddcoincore/electrumx:v1.20.1 .
 ```
 
-`VERSION` is a branch or tag of [reddcoin-project/electrumx][reddcoin-electrumx]. Pushes to `master` build and publish multi-arch images to Docker Hub via [GitHub Actions](.github/workflows/on-master-push.yml).
+`VERSION` is a branch or tag of [reddcoin-project/electrumx][reddcoin-electrumx].
+
+### Releasing
+
+1. Bump `ARG VERSION` in the [`Dockerfile`](Dockerfile) and push to `master` — [this](.github/workflows/on-master-push.yml) builds and publishes `latest`.
+2. Tag the commit with the same version and push the tag:
+
+   ```shell
+   git tag -a v1.20.1 -m "ElectrumX 1.20.1"
+   git push origin v1.20.1
+   ```
+
+   [This](.github/workflows/on-tag.yml) checks the tag matches the `Dockerfile`, publishes `reddcoincore/electrumx:v1.20.1` and creates the GitHub Release.
 
 
 ## License
