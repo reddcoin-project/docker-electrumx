@@ -1,54 +1,167 @@
-# docker-electrumx
+reddcoincore/electrumx
+======================
 
-[![Docker Pulls](https://img.shields.io/docker/pulls/lukechilds/electrumx.svg)](https://hub.docker.com/r/lukechilds/electrumx/)
-[![GitHub Donate](https://badgen.net/badge/GitHub/Sponsor/D959A7?icon=github)](https://github.com/sponsors/lukechilds)
-[![Bitcoin Donate](https://badgen.net/badge/Bitcoin/Donate/F19537?icon=bitcoin)](https://lu.ke/tip/bitcoin)
-[![Lightning Donate](https://badgen.net/badge/Lightning/Donate/F6BC41?icon=bitcoin-lightning)](https://lu.ke/tip/lightning)
+[![gh_last_release_svg]][gh_last_release_url]
+[![Docker Image Size]][docker-hub]
+[![Docker Pulls Count]][docker-hub]
 
-> Run an Electrum server with one command
+[gh_last_release_svg]: https://img.shields.io/github/v/tag/reddcoin-project/docker-electrumx?sort=semver
+[gh_last_release_url]: https://github.com/reddcoin-project/docker-electrumx/tags
+[Docker Image Size]: https://img.shields.io/docker/image-size/reddcoincore/electrumx
+[Docker Pulls Count]: https://img.shields.io/docker/pulls/reddcoincore/electrumx.svg?style=flat
+[docker-hub]: https://hub.docker.com/r/reddcoincore/electrumx
 
-An easily configurable Docker image for running an Electrum server.
+> Run a Reddcoin Electrum server with one command
+
+This repo packages the [Reddcoin fork of ElectrumX][reddcoin-electrumx] into a Docker image for `linux/amd64` and `linux/arm64`. It serves Electrum clients such as [Redd-Electrum] and needs a fully synced [`reddcoind`] node with RPC enabled — the [`reddcoincore/reddcoind`][reddcoind-image] image works well for this.
+
+[reddcoin-electrumx]: https://github.com/reddcoin-project/electrumx
+[Redd-Electrum]: https://github.com/reddcoin-project/electrum-redd
+[`reddcoind`]: https://github.com/reddcoin-project/reddcoin
+[reddcoind-image]: https://hub.docker.com/r/reddcoincore/reddcoind
+
+> The work here is based on [lukechilds/docker-electrumx](https://github.com/lukechilds/docker-electrumx).
+
+
+## Tags
+
+> **NOTE:** For an always up-to-date list see: https://hub.docker.com/r/reddcoincore/electrumx/tags
+
+* `latest` — most recent build from `master`
+* `v<version>` (e.g. `v1.20.1`) — built from the matching tag of [reddcoin-project/electrumx][reddcoin-electrumx]
+
 
 ## Usage
 
+### Pull
+
+```shell
+docker pull reddcoincore/electrumx
 ```
-docker run \
-  -v /home/username/electrumx:/data \
-  -e DAEMON_URL=http://user:pass@host:port \
+
+### Run
+
+```shell
+docker run -d \
+  --name reddcoin-electrumx \
+  -v /path/to/electrumx:/data \
+  -e COIN=Reddcoin \
+  -e DAEMON_URL=http://rpcuser:rpcpassword@reddcoind-host:45443 \
   -p 50002:50002 \
-  lukechilds/electrumx
+  reddcoincore/electrumx
 ```
 
-If there's an SSL certificate/key (`electrumx.crt`/`electrumx.key`) in the `/data` volume it'll be used. If not, one will be generated for you.
+> **IMPORTANT:** The image defaults to `COIN=Bitcoin` (inherited from upstream). Always set `COIN=Reddcoin` (or `COIN=ReddcoinTestnet` with `NET=testnet` for testnet).
 
-You can view all ElectrumX environment variables here: https://github.com/spesmilo/electrumx/blob/master/docs/environment.rst
+`DAEMON_URL` must point at the RPC interface of your `reddcoind` node (the default Reddcoin mainnet RPC port is `45443`). Make sure `reddcoind` allows RPC connections from the ElectrumX container (`rpcallowip`).
 
-### TCP Port
+On first start ElectrumX indexes the whole Reddcoin chain into `/data`, which takes a while. Clients can connect once it has caught up with the node.
 
-By default only the SSL port is exposed. You can expose the unencrypted TCP port with `-p 50001:50001`, although this is strongly discouraged.
+### Docker Compose
 
-### WebSocket Port
+Running `reddcoind` and ElectrumX side by side on a private network:
 
-You can expose the WebSocket port with `-p 50004:50004`.
+```yaml
+services:
+  reddcoin-server:
+    container_name: reddcoin-server
+    image: reddcoincore/reddcoind:v4.22.9
+    restart: on-failure
+    volumes:
+      - ./data/reddcoin:/home/reddcoind/.reddcoin
+    environment:
+      - RPC_SERVER=1
+      - RPC_USERNAME=rpcuser
+      - RPC_PASSWORD=change-me
+      - RPC_PORT=45443
+      - RPC_ALLOW_IP=172.28.0.0/16
+    stop_grace_period: 5m
+    networks:
+      - reddnet
 
-### RPC Port
+  reddcoin-electrumx:
+    container_name: reddcoin-electrumx
+    image: reddcoincore/electrumx:latest
+    restart: always
+    volumes:
+      - ./data/electrumx:/data
+    environment:
+      - COIN=Reddcoin
+      - DAEMON_URL=http://rpcuser:change-me@reddcoin-server:45443
+      - REPORT_SERVICES=ssl://electrum.example.com:50002,wss://electrum.example.com:50004
+    ports:
+      - "50002:50002"
+      - "50004:50004"
+    networks:
+      - reddnet
 
-To access RPC from your host machine, you'll also need to expose port 8000. You probably only want this available to localhost: `-p 127.0.0.1:8000:8000`.
+networks:
+  reddnet:
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+```
 
-If you're only accessing RPC from within the container, there's no need to expose the RPC port.
+Set `REPORT_SERVICES` to the public hostname of your server so it can be announced to peers and clients.
+
+### Configuration
+
+The image sets these defaults, all of which can be overridden with `-e`:
+
+| Variable            | Default                                                      |
+|---------------------|--------------------------------------------------------------|
+| `COIN`              | `Bitcoin` — **set this to `Reddcoin`**                       |
+| `DB_DIRECTORY`      | `/data`                                                      |
+| `SERVICES`          | `tcp://:50001,ssl://:50002,wss://:50004,rpc://0.0.0.0:8000`  |
+| `SSL_CERTFILE`      | `/data/electrumx.crt`                                        |
+| `SSL_KEYFILE`       | `/data/electrumx.key`                                        |
+| `EVENT_LOOP_POLICY` | `uvloop`                                                     |
+| `ALLOW_ROOT`        | `1`                                                          |
+
+All ElectrumX environment variables are documented here: https://electrumx-spesmilo.readthedocs.io/en/latest/environment.html
+
+### SSL certificate
+
+If there's an SSL certificate/key (`electrumx.crt`/`electrumx.key`) in the `/data` volume it'll be used. If not, a self-signed one will be generated on first start.
+
+### Ports
+
+| Port    | Service                    | Notes                                                        |
+|---------|----------------------------|--------------------------------------------------------------|
+| `50001` | TCP (unencrypted)          | Exposing it with `-p 50001:50001` is strongly discouraged    |
+| `50002` | SSL                        | The main port for Electrum clients                           |
+| `50004` | WebSocket (WSS)            | For browser-based wallets                                    |
+| `8000`  | RPC                        | Only expose to localhost: `-p 127.0.0.1:8000:8000`           |
+
+To use the RPC interface from inside the container there's no need to expose the port:
+
+```shell
+docker exec reddcoin-electrumx electrumx_rpc getinfo
+```
 
 ### Version
 
-You can also run a specific version of ElectrumX if you want.
+To run a specific version, use its tag:
 
-```
+```shell
 docker run \
-  -v /home/username/electrumx:/data \
-  -e DAEMON_URL=http://user:pass@host:port \
+  -v /path/to/electrumx:/data \
+  -e COIN=Reddcoin \
+  -e DAEMON_URL=http://rpcuser:rpcpassword@reddcoind-host:45443 \
   -p 50002:50002 \
-  lukechilds/electrumx:v1.8.7
+  reddcoincore/electrumx:v1.20.1
 ```
+
+
+## Building
+
+```shell
+docker build --build-arg VERSION=1.20.1 -t reddcoincore/electrumx:v1.20.1 .
+```
+
+`VERSION` is a branch or tag of [reddcoin-project/electrumx][reddcoin-electrumx]. Pushes to `master` build and publish multi-arch images to Docker Hub via [GitHub Actions](.github/workflows/on-master-push.yml).
+
 
 ## License
 
-MIT © Luke Childs
+MIT © Luke Childs, Reddcoin Core Developers
