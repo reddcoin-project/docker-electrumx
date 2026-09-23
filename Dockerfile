@@ -1,4 +1,4 @@
-ARG VERSION=1.19.1
+ARG VERSION=1.20.1
 
 FROM debian:trixie-slim
 LABEL maintainer="John Nash <gnasher@reddcoin.com>"
